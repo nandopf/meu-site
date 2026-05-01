@@ -4,51 +4,57 @@
   <meta charset="UTF-8">
   <title>Temperatura do Quarto</title>
   <link rel="stylesheet" href="style.css">
+  <!-- Carregando a biblioteca do Supabase via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
 <script>
 const url = "https://ptunjhmkickwuiyxufhv.supabase.co";
+const key = "'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dW5qaG1raWNrd3VpeXh1Zmh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1OTg1OTUsImV4cCI6MjA5MzE3NDU5NX0.ASh37T-ZHHnFTk_yWLQnWNv91l0AOeUW_1Tj9F-8KD0'"; // <-- ATENÇÃO: Use a chave ANON/PUBLIC aqui
 
+const supabaseClient = supabase.createClient(url, key);
 
-
-fetch(url, {
-  headers: {
-    "apikey": "sb_secret_NLtudPX9W3Bsu9ju0ycBow_xGDOVrRa", 
-    "Authorization": "sb_secret_NLtudPX9W3Bsu9ju0ycBow_xGDOVrRa"
-  }
-})
-.then(res => res.json())
-.then(data => {
+async function carregarDados() {
   const tabela = document.getElementById("tabela");
+  
+  try {
+    // Busca os dados da tabela (verifique se o nome é 'teste' ou 'temperaturas')
+    const { data, error } = await supabaseClient
+      .from('teste') // <-- Ajuste o nome da tabela se necessário
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  // limpar tabela (mantém cabeçalho)
-  tabela.innerHTML = `
-    <tr>
-      <th>Data/Hora</th>
-      <th>Temperatura (°C)</th>
-    </tr>
-  `;
+    if (error) {
+      console.error("Erro ao buscar dados:", error.message);
+      return;
+    }
 
-  // ordenar do mais recente
-  data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-  data.forEach(item => {
-
-    const dataFormatada = new Date(item.created_at).toLocaleString("pt-BR");
-
-    const linha = `
+    // limpar tabela (mantém cabeçalho)
+    tabela.innerHTML = `
       <tr>
-        <td>${dataFormatada}</td>
-        <td>${item.temperatura}</td>
+        <th>Data/Hora</th>
+        <th>Temperatura (°C)</th>
       </tr>
     `;
 
-    tabela.innerHTML += linha;
-  });
-})
-.catch(err => {
-  console.error("Erro:", err);
-});
+    data.forEach(item => {
+      const dataFormatada = new Date(item.created_at).toLocaleString("pt-BR");
+      const linha = `
+        <tr>
+          <td>${dataFormatada}</td>
+          <td>${item.temperatura || 'N/A'}</td>
+        </tr>
+      `;
+      tabela.innerHTML += linha;
+    });
+
+  } catch (err) {
+    console.error("Erro inesperado:", err);
+  }
+}
+
+// Carrega os dados quando a página abrir
+window.onload = carregarDados;
 </script>
 
 <body>
