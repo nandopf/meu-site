@@ -1,34 +1,52 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
   <meta charset="UTF-8">
-  <title>Meu Site</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Temperatura do Quarto</title>
 </head>
+
 <body>
 
-  <header>
-    <h1>Meu Primeiro Site </h1>
-    <p>Hospedado grátis com Cloudflare Pages</p>
-  </header>
+  <h1>Projeto 1 - Temperatura do Quarto</h1>
 
-  <main>
-    <section>
-      <h2>Sobre</h2>
-      <p>Esse é um site simples criado para testes.</p>
-    </section>
+  <nav>
+    <a href="index.html">Home</a> |
+    <a href="sensor1.html">1 Sensor</a>
+  </nav>
 
-    <section>
-      <h2>Contato</h2>
-      <button onclick="mostrarMensagem()">Clique aqui</button>
-      <p id="mensagem"></p>
-    </section>
-  </main>
+  <h2>Dados de Temperatura</h2>
 
-  <footer>
-    <p>© 2026 - Meu Projeto</p>
-  </footer>
+  <table border="1" id="tabela">
+    <tr>
+      <th>Data/Hora</th>
+      <th>Temperatura (°C)</th>
+    </tr>
+  </table>
 
-  <script src="script.js"></script>
+  <script>
+    const url = "https://SEU_PROJETO.supabase.co/rest/v1/temperatura_quarto";
+
+    fetch(url, {
+      headers: {
+        "apikey": "SUA_API_KEY",
+        "Authorization": "Bearer SUA_API_KEY"
+      }
+    })
+    .then(res => res.json())
+    .then(data => {
+      const tabela = document.getElementById("tabela");
+
+      data.forEach(item => {
+        const linha = `
+          <tr>
+            <td>${item.created_at}</td>
+            <td>${item.temperatura}</td>
+          </tr>
+        `;
+        tabela.innerHTML += linha;
+      });
+    });
+  </script>
+
 </body>
 </html>
