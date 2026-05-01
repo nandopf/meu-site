@@ -6,6 +6,58 @@
   <link rel="stylesheet" href="style.css">
 </head>
 
+<script>
+const url = "https://ptunjhmkickwuiyxufhv.supabase.co";
+
+
+
+fetch(url, {
+  headers: {
+    "apikey": "sb_publishable_gEPPaXvud_a8A7CeM95aAA_j46cgKGE", 
+    "Authorization": "sb_publishable_gEPPaXvud_a8A7CeM95aAA_j46cgKGE"
+  }
+})
+.then(res => res.json())
+.then(data => {
+  const tabela = document.getElementById("tabela");
+
+  // limpar tabela (mantém cabeçalho)
+  tabela.innerHTML = `
+    <tr>
+      <th>Data/Hora</th>
+      <th>Temperatura (°C)</th>
+    </tr>
+  `;
+
+  // ordenar do mais recente
+  data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  data.forEach(item => {
+
+    const dataFormatada = new Date(item.created_at).toLocaleString("pt-BR");
+
+    const linha = `
+      <tr>
+        <td>${dataFormatada}</td>
+        <td>${item.temperatura}</td>
+      </tr>
+    `;
+
+    tabela.innerHTML += linha;
+  });
+})
+.catch(err => {
+  console.error("Erro:", err);
+});
+</script>
+🧪 PASSO 4
+
+
+
+
+
+
+
 <body>
 
 <header>
