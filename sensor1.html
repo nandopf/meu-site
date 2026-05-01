@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
-  <title>Temperatura do Quarto</title>
+  <title>Monitoramento - Temperatura e Humidade</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -19,7 +19,6 @@ let periodoAtual = 'dia';
 async function carregarDados(periodo = 'dia') {
   periodoAtual = periodo;
   
-  // Atualizar botões das abas
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.periodo === periodo);
   });
@@ -28,7 +27,7 @@ async function carregarDados(periodo = 'dia') {
   if (periodo === 'dia') dataInicio.setDate(dataInicio.getDate() - 1);
   else if (periodo === 'semana') dataInicio.setDate(dataInicio.getDate() - 7);
   else if (periodo === 'mes') dataInicio.setMonth(dataInicio.getMonth() - 1);
-  else dataInicio = new Date(0); // Total
+  else dataInicio = new Date(0);
 
   try {
     let query = supabaseClient
@@ -41,7 +40,6 @@ async function carregarDados(periodo = 'dia') {
     }
 
     const { data, error } = await query;
-
     if (error) throw error;
 
     atualizarResumo(data);
@@ -55,35 +53,48 @@ async function carregarDados(periodo = 'dia') {
 
 function atualizarResumo(data) {
   if (data.length === 0) return;
-  const temps = data.map(i => i.temperatura);
-  const max = Math.max(...temps);
-  const min = Math.min(...temps);
-  const avg = temps.reduce((a, b) => a + b, 0) / temps.length;
+  
+  const temps = data.map(i => i.temperatura).filter(v => v != null);
+  const hums = data.map(i => i.humidade).filter(v => v != null);
 
-  document.getElementById('temp-max').innerText = max.toFixed(1) + '°C';
-  document.getElementById('temp-min').innerText = min.toFixed(1) + '°C';
-  document.getElementById('temp-avg').innerText = avg.toFixed(1) + '°C';
+  if (temps.length > 0) {
+    document.getElementById('temp-avg').innerText = (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) + '°C';
+    document.getElementById('temp-max').innerText = Math.max(...temps).toFixed(1) + '°C';
+  }
+
+  if (hums.length > 0) {
+    const humAvg = hums.reduce((a, b) => a + b, 0) / hums.length;
+    document.getElementById('hum-avg').innerText = humAvg.toFixed(1) + '%';
+    document.getElementById('hum-last').innerText = hums[0].toFixed(1) + '%';
+  }
 }
 
 function atualizarTabela(data) {
   const tabela = document.getElementById("tabela");
-  tabela.innerHTML = `<tr><th>Data/Hora</th><th>Temperatura (°C)</th></tr>`;
+  tabela.innerHTML = `<tr><th>Data/Hora</th><th>Temp (°C)</th><th>Hum (%)</th></tr>`;
   
-  // Mostrar apenas as últimas 15 na tabela para não travar
   data.slice(0, 15).forEach(item => {
     const dataFormatada = new Date(item.created_at).toLocaleString("pt-BR");
     const tempClass = item.temperatura > 25 ? 'temp-high' : (item.temperatura < 21 ? 'temp-low' : 'temp-normal');
-    tabela.innerHTML += `<tr><td>${dataFormatada}</td><td class="${tempClass}">${item.temperatura}°C</td></tr>`;
+    
+    tabela.innerHTML += `
+      <tr>
+        <td>${dataFormatada}</td>
+        <td class="${tempClass}">${item.temperatura ?? '--'}°C</td>
+        <td class="hum-value">${item.humidade ?? '--'}%</td>
+      </tr>`;
   });
 }
 
 function atualizarGrafico(data) {
-  const dadosInvertidos = [...data].slice(0, 50).reverse(); 
+  const dadosInvertidos = [...data].slice(0, 40).reverse(); 
   const labels = dadosInvertidos.map(item => {
     const d = new Date(item.created_at);
     return periodoAtual === 'dia' ? d.toLocaleTimeString("pt-BR", {hour:'2-digit', minute:'2-digit'}) : d.toLocaleDateString("pt-BR", {day:'2-digit', month:'2-digit'});
   });
+  
   const temps = dadosInvertidos.map(item => item.temperatura);
+  const hums = dadosInvertidos.map(item => item.humidade);
 
   const ctx = document.getElementById('graficoTemperatura').getContext('2d');
   if (meuGrafico) meuGrafico.destroy();
@@ -92,19 +103,45 @@ function atualizarGrafico(data) {
     type: 'line',
     data: {
       labels: labels,
-      datasets: [{
-        label: 'Temperatura',
-        data: temps,
-        borderColor: '#2563eb',
-        backgroundColor: 'rgba(37, 99, 235, 0.1)',
-        fill: true,
-        tension: 0.3
-      }]
+      datasets: [
+        {
+          label: 'Temperatura (°C)',
+          data: temps,
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37, 99, 235, 0.1)',
+          yAxisID: 'y',
+          tension: 0.3,
+          fill: true
+        },
+        {
+          label: 'Humidade (%)',
+          data: hums,
+          borderColor: '#0891b2',
+          backgroundColor: 'rgba(8, 145, 178, 0.1)',
+          yAxisID: 'y1',
+          tension: 0.3,
+          fill: true
+        }
+      ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } }
+      scales: {
+        y: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          title: { display: true, text: 'Temp (°C)' }
+        },
+        y1: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          grid: { drawOnChartArea: false },
+          title: { display: true, text: 'Hum (%)' }
+        }
+      }
     }
   });
 }
@@ -116,8 +153,8 @@ setInterval(() => carregarDados(periodoAtual), 60000);
 <body>
 
 <header>
-  <h1>🌡️ Monitoramento de Temperatura</h1>
-  <p>Análise de dados do sensor</p>
+  <h1>🌡️ Monitoramento Ambiental</h1>
+  <p>Temperatura e Humidade em tempo real</p>
 </header>
 
 <nav>
@@ -126,7 +163,6 @@ setInterval(() => carregarDados(periodoAtual), 60000);
 </nav>
 
 <main>
-  <!-- Abas -->
   <div class="tabs">
     <button class="tab-btn active" data-periodo="dia" onclick="carregarDados('dia')">Diário</button>
     <button class="tab-btn" data-periodo="semana" onclick="carregarDados('semana')">Semanal</button>
@@ -134,33 +170,34 @@ setInterval(() => carregarDados(periodoAtual), 60000);
     <button class="tab-btn" data-periodo="total" onclick="carregarDados('total')">Total</button>
   </div>
 
-  <!-- Cards de Resumo -->
   <div class="summary-grid">
     <div class="summary-item">
-      <span class="summary-label">Mínima</span>
-      <span id="temp-min" class="summary-value">--</span>
-    </div>
-    <div class="summary-item" style="border-top: 4px solid var(--primary);">
-      <span class="summary-label">Média</span>
+      <span class="summary-label">Temp. Média</span>
       <span id="temp-avg" class="summary-value">--</span>
     </div>
     <div class="summary-item">
-      <span class="summary-label">Máxima</span>
+      <span class="summary-label">Temp. Máxima</span>
       <span id="temp-max" class="summary-value">--</span>
+    </div>
+    <div class="summary-item" style="border-top: 4px solid #0891b2;">
+      <span class="summary-label">Hum. Média</span>
+      <span id="hum-avg" class="summary-value">--</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">Hum. Atual</span>
+      <span id="hum-last" class="summary-value">--</span>
     </div>
   </div>
 
-  <!-- Gráfico -->
-  <div class="card" style="width: 100%; margin-bottom: 2rem; height: 350px; box-sizing: border-box;">
-    <h2>Variação no Período</h2>
-    <div style="height: 250px;">
+  <div class="card" style="width: 100%; margin-bottom: 2rem; height: 400px; box-sizing: border-box;">
+    <h2>Tendências Ambientais</h2>
+    <div style="height: 300px;">
       <canvas id="graficoTemperatura"></canvas>
     </div>
   </div>
 
-  <!-- Tabela -->
   <div class="card" style="width: 100%; box-sizing: border-box;">
-    <h2>Últimas Leituras</h2>
+    <h2>Histórico Completo</h2>
     <table id="tabela"></table>
   </div>
 </main>

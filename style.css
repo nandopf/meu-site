@@ -114,6 +114,7 @@ footer {
 .temp-high { color: #ef4444; font-weight: bold; }
 .temp-low { color: #3b82f6; font-weight: bold; }
 .temp-normal { color: #10b981; font-weight: bold; }
+.hum-value { color: #0891b2; font-weight: bold; }
 
 /* Tabs */
 .tabs {
