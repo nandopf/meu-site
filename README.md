@@ -1,6 +1,6 @@
-# 🌡️ Lab Temperature Monitor
+# 🌡️ Lab Environmental Monitor
 
-Sistema de monitoramento térmico em tempo real integrado com **Supabase** e **Chart.js**.
+Sistema de monitoramento térmico e de humidade em tempo real integrado com **Supabase** e **Chart.js**.
 
 ## 📸 Visualização do Projeto
 
@@ -11,20 +11,20 @@ Sistema de monitoramento térmico em tempo real integrado com **Supabase** e **C
 
 ## 🚀 Funcionalidades
 
-- **Monitoramento em Tempo Real:** Conexão direta com banco de dados via Supabase.
-- **Gráficos Interativos:** Visualização de tendências com Chart.js.
+- **Monitoramento Ambiental:** Temperatura (°C) e Humidade (%) em tempo real.
+- **Gráficos de Eixo Duplo:** Visualização simultânea de múltiplas variáveis (Temp e Hum).
 - **Análise por Período:** Filtros Diário, Semanal e Mensal.
-- **Estatísticas Rápidas:** Cálculo automático de Mínima, Média e Máxima.
+- **Estatísticas Rápidas:** Dashboards com médias, picos e valores atuais.
 - **Interface Responsiva:** Design moderno adaptado para dispositivos móveis e desktop.
 
 ## 🛠️ Arquitetura do Sistema
 
 ```mermaid
 graph TD
-    A[Sensor / Arduino] -->|Post Data| B(Supabase DB)
+    A[Sensor / Arduino] -->|Temp + Hum| B(Supabase DB)
     B -->|Real-time API| C[Site / GitHub Pages]
     subgraph Frontend
-        C --> D[Chart.js - Gráficos]
+        C --> D[Chart.js - Eixo Duplo]
         C --> E[Métricas - Min/Max/Avg]
         C --> F[Tabela de Histórico]
     end
@@ -38,7 +38,7 @@ graph TD
 ## 📋 Como Configurar
 
 1. **Banco de Dados:**
-   - Crie uma tabela `temperatura_quarto` no Supabase com as colunas `id`, `created_at` e `temperatura`.
+   - Crie uma tabela `temperatura_quarto` no Supabase com as colunas `id`, `created_at`, `temperatura` e `humidade`.
    - Habilite o RLS e a política de leitura pública (conforme `ARCHITECTURE.md`).
 
 2. **Frontend:**
