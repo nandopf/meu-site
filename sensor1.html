@@ -4,32 +4,34 @@
   <meta charset="UTF-8">
   <title>Temperatura do Quarto</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Carregando a biblioteca do Supabase via CDN -->
+  <!-- Bibliotecas externas -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <script>
 const url = "https://ptunjhmkickwuiyxufhv.supabase.co";
-const key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dW5qaG1raWNrd3VpeXh1Zmh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1OTg1OTUsImV4cCI6MjA5MzE3NDU5NX0.ASh37T-ZHHnFTk_yWLQnWNv91l0AOeUW_1Tj9F-8KD0"; // <-- COLE A CHAVE QUE VOCÊ COPIOU DO SUPABASE AQUI DENTRO DAS ASPAS
+const key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dW5qaG1raWNrd3VpeXh1Zmh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1OTg1OTUsImV4cCI6MjA5MzE3NDU5NX0.ASh37T-ZHHnFTk_yWLQnWNv91l0AOeUW_1Tj9F-8KD0"; 
 
 const supabaseClient = supabase.createClient(url, key);
+let meuGrafico;
 
 async function carregarDados() {
   const tabela = document.getElementById("tabela");
   
   try {
-    // Busca os dados da tabela correta
     const { data, error } = await supabaseClient
       .from('temperatura_quarto')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(20); 
 
     if (error) {
       console.error("Erro ao buscar dados:", error.message);
       return;
     }
 
-    // limpar tabela (mantém cabeçalho)
+    // --- ATUALIZAR TABELA ---
     tabela.innerHTML = `
       <tr>
         <th>Data/Hora</th>
@@ -39,28 +41,82 @@ async function carregarDados() {
 
     data.forEach(item => {
       const dataFormatada = new Date(item.created_at).toLocaleString("pt-BR");
+      // Cores baseadas no valor (definidas no style.css)
+      const tempClass = item.temperatura > 25 ? 'temp-high' : (item.temperatura < 21 ? 'temp-low' : 'temp-normal');
+      
       const linha = `
         <tr>
           <td>${dataFormatada}</td>
-          <td>${item.temperatura || 'N/A'}</td>
+          <td class="${tempClass}">${item.temperatura || '0'}°C</td>
         </tr>
       `;
       tabela.innerHTML += linha;
     });
+
+    // --- ATUALIZAR GRÁFICO ---
+    const dadosInvertidos = [...data].reverse(); 
+    const labels = dadosInvertidos.map(item => new Date(item.created_at).toLocaleTimeString("pt-BR", {hour: '2-digit', minute:'2-digit'}));
+    const temperaturas = dadosInvertidos.map(item => item.temperatura);
+
+    renderizarGrafico(labels, temperaturas);
 
   } catch (err) {
     console.error("Erro inesperado:", err);
   }
 }
 
-// Carrega os dados quando a página abrir
+function renderizarGrafico(labels, dados) {
+  const ctx = document.getElementById('graficoTemperatura').getContext('2d');
+  
+  if (meuGrafico) {
+    meuGrafico.destroy();
+  }
+
+  meuGrafico = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Temperatura (°C)',
+        data: dados,
+        borderColor: '#2563eb',
+        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+        borderWidth: 3,
+        fill: true,
+        tension: 0.4, 
+        pointRadius: 4,
+        pointBackgroundColor: '#2563eb'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: false,
+          grid: { color: '#f1f5f9' }
+        },
+        x: {
+          grid: { display: false }
+        }
+      },
+      plugins: {
+        legend: { display: false }
+      }
+    }
+  });
+}
+
+// Atualizar a cada 30 segundos automaticamente
+setInterval(carregarDados, 30000);
 window.onload = carregarDados;
 </script>
 
 <body>
 
 <header>
-  <h1>🌡️ Projeto 1 - Temperatura do Quarto</h1>
+  <h1>🌡️ Projeto 1 - Monitoramento</h1>
+  <p>Dados em tempo real do Quarto</p>
 </header>
 
 <nav>
@@ -70,19 +126,30 @@ window.onload = carregarDados;
 
 <main>
 
-  <div class="card">
-    <h2>Dados de Temperatura</h2>
+  <!-- Gráfico -->
+  <div class="card" style="width: 100%; margin-bottom: 2rem; height: 350px; box-sizing: border-box;">
+    <h2>Tendência de Temperatura</h2>
+    <div style="height: 200px;">
+      <canvas id="graficoTemperatura"></canvas>
+    </div>
+  </div>
 
+  <!-- Tabela -->
+  <div class="card" style="width: 100%; box-sizing: border-box;">
+    <h2>Histórico de Leituras</h2>
     <table id="tabela">
       <tr>
         <th>Data/Hora</th>
         <th>Temperatura (°C)</th>
       </tr>
     </table>
-
   </div>
 
 </main>
+
+<footer>
+  <p>Desenvolvido por Fernando</p>
+</footer>
 
 </body>
 </html>
