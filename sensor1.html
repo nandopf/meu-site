@@ -10,7 +10,7 @@
 
 <script>
 const url = "https://ptunjhmkickwuiyxufhv.supabase.co";
-const key = "'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dW5qaG1raWNrd3VpeXh1Zmh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1OTg1OTUsImV4cCI6MjA5MzE3NDU5NX0.ASh37T-ZHHnFTk_yWLQnWNv91l0AOeUW_1Tj9F-8KD0'"; // <-- ATENÇÃO: Use a chave ANON/PUBLIC aqui
+const key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dW5qaG1raWNrd3VpeXh1Zmh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1OTg1OTUsImV4cCI6MjA5MzE3NDU5NX0.ASh37T-ZHHnFTk_yWLQnWNv91l0AOeUW_1Tj9F-8KD0"; // <-- COLE A CHAVE QUE VOCÊ COPIOU DO SUPABASE AQUI DENTRO DAS ASPAS
 
 const supabaseClient = supabase.createClient(url, key);
 
@@ -18,9 +18,9 @@ async function carregarDados() {
   const tabela = document.getElementById("tabela");
   
   try {
-    // Busca os dados da tabela (verifique se o nome é 'teste' ou 'temperaturas')
+    // Busca os dados da tabela correta
     const { data, error } = await supabaseClient
-      .from('temperatura_quarto') // <-- Ajuste o nome da tabela se necessário
+      .from('temperatura_quarto')
       .select('*')
       .order('created_at', { ascending: false });
 
