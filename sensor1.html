@@ -20,7 +20,7 @@ async function carregarDados() {
   try {
     // Busca os dados da tabela (verifique se o nome é 'teste' ou 'temperaturas')
     const { data, error } = await supabaseClient
-      .from('teste') // <-- Ajuste o nome da tabela se necessário
+      .from('temperatura_quarto') // <-- Ajuste o nome da tabela se necessário
       .select('*')
       .order('created_at', { ascending: false });
 
