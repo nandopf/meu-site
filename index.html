@@ -1,52 +1,43 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
   <meta charset="UTF-8">
-  <title>Temperatura do Quarto</title>
+  <title>Monitoramento de Temperatura</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-  <h1>Projeto 1 - Temperatura do Quarto</h1>
+<header>
+  <h1>🌡️ Monitoramento de Temperatura</h1>
+  <p>Projeto com Raspberry Pi + IoT + IA</p>
+</header>
 
-  <nav>
-    <a href="index.html">Home</a> |
-    <a href="sensor1.html">1 Sensor</a>
-  </nav>
+<nav>
+  <a href="index.html">Home</a>
+  <a href="sensor1.html">Projeto 1 Sensor</a>
+  <a href="#">Projeto 2 Sensores</a>
+</nav>
 
-  <h2>Dados de Temperatura</h2>
+<main>
 
-  <table border="1" id="tabela">
-    <tr>
-      <th>Data/Hora</th>
-      <th>Temperatura (°C)</th>
-    </tr>
-  </table>
+  <section class="cards">
+    <div class="card">
+      <h2>Projeto 1</h2>
+      <p>Monitoramento da temperatura do ambiente</p>
+    </div>
 
-  <script>
-    const url = "https://SEU_PROJETO.supabase.co/rest/v1/temperatura_quarto";
+    <div class="card">
+      <h2>Projeto 2</h2>
+      <p>Controle térmico do fermentador (em breve)</p>
+    </div>
+  </section>
 
-    fetch(url, {
-      headers: {
-        "apikey": "SUA_API_KEY",
-        "Authorization": "Bearer SUA_API_KEY"
-      }
-    })
-    .then(res => res.json())
-    .then(data => {
-      const tabela = document.getElementById("tabela");
+</main>
 
-      data.forEach(item => {
-        const linha = `
-          <tr>
-            <td>${item.created_at}</td>
-            <td>${item.temperatura}</td>
-          </tr>
-        `;
-        tabela.innerHTML += linha;
-      });
-    });
-  </script>
+<footer>
+  <p>Desenvolvido por Fernando</p>
+</footer>
 
 </body>
 </html>
