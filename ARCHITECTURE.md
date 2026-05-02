@@ -14,18 +14,19 @@ O projeto é baseado em uma arquitetura **Serverless** utilizando o Supabase com
   - `created_at` (timestamp, default: now())
   - `temperatura` (float8)
   - `humidade` (float8)
+  - `cpu_temp` (float8)
 - **Segurança:** RLS (Row Level Security) habilitado com política de leitura pública para usuários `anon`.
 
 ### 2. Camada de Apresentação (Frontend)
 - **Tecnologias:** HTML5, CSS3, JavaScript (ES6+).
 - **Bibliotecas Externas:**
   - `supabase-js`: Comunicação com o banco de dados.
-  - `Chart.js`: Renderização de gráficos de eixo duplo (Y-axis duplo para Temp e Hum).
+  - `Chart.js`: Renderização de gráficos multi-eixo.
 - **Componentes:**
   - **Tabs de Filtro:** Diária, Semanal, Mensal e Total.
-  - **Summary Cards:** Mínima, Média e Máxima de Temperatura + Média e Atual de Humidade.
-  - **Gráfico de Linha Duplo:** Visualização simultânea de temperatura e humidade.
-  - **Tabela de Histórico:** Lista completa com cores dinâmicas para temperatura.
+  - **Summary Cards:** Temp. Ambiente, Humidade e Saúde do Sistema (CPU Temp).
+  - **Smart Insights:** Motor de análise lógica que gera diagnósticos técnicos automáticos baseados nas métricas do período.
+  - **Gráfico de Linha Triplo:** Visualização simultânea de temperatura ambiente, humidade e temperatura da CPU.
 
 ## 🔄 Fluxo de Dados (Workflow)
 
