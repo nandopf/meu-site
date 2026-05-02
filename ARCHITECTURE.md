@@ -46,5 +46,8 @@ O projeto é baseado em uma arquitetura **Serverless** utilizando o Supabase com
 - `teste_bd.html`: Ferramenta de diagnóstico para testar conectividade.
 - `ARCHITECTURE.md`: Este documento de documentação.
 
+## 🚀 Escalabilidade
+A arquitetura foi projetada para ser modular. Novos projetos (como o Fermentador, Hidroponia e Irrigação de Lúpulo) utilizarão o mesmo ecossistema Supabase, apenas criando novas tabelas e painéis frontend específicos, mantendo a centralização dos dados.
+
 ---
 *Atualizado em: 01 de Maio de 2026*
