@@ -2,41 +2,56 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
-  <title>Monitoramento de Temperatura</title>
+  <title>Lab IoT - Fernando</title>
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
 <header>
-  <h1>🌡️ Monitoramento de Temperatura</h1>
-  <p>Projeto com Raspberry Pi + IoT + IA</p>
+  <h1>🌡️ Central de Monitoramento IoT</h1>
+  <p>Laboratório de Automação com Raspberry Pi & Inteligência de Dados</p>
 </header>
 
 <nav>
   <a href="index.html">Home</a>
-  <a href="sensor1.html">Projeto 1 Sensor</a>
-  <a href="#">Projeto 2 Sensores</a>
+  <a href="sensor1.html">Projeto 1: Quarto</a>
+  <a href="#">Projeto 2: Fermentador</a>
+  <a href="#">Projeto 3: Hidroponia</a>
 </nav>
 
 <main>
 
   <section class="cards">
-    <div class="card">
-      <h2>Projeto 1</h2>
-      <p>Monitoramento da temperatura do ambiente</p>
+    <!-- Projeto 1: ATIVO -->
+    <a href="sensor1.html" style="text-decoration: none; color: inherit;">
+      <div class="card" style="border-top: 5px solid var(--primary);">
+        <span style="font-size: 0.8rem; color: var(--secondary); font-weight: bold; text-transform: uppercase;">Ativo</span>
+        <h2>Projeto 1</h2>
+        <p>Monitoramento Ambiental (Temp/Hum) do Quarto com análise de saúde do RPi.</p>
+        <div style="margin-top: 1rem; color: var(--primary); font-weight: bold;">Acessar Painel →</div>
+      </div>
+    </a>
+
+    <!-- Projeto 2: EM BREVE -->
+    <div class="card" style="opacity: 0.8; border-top: 5px solid #f59e0b;">
+      <span style="font-size: 0.8rem; color: #f59e0b; font-weight: bold; text-transform: uppercase;">Em Breve</span>
+      <h2>Projeto 2</h2>
+      <p>Controle térmico e monitoramento de fermentador (Projeto 2 sensores).</p>
     </div>
 
-    <div class="card">
-      <h2>Projeto 2</h2>
-      <p>Controle térmico do fermentador (em breve)</p>
+    <!-- Projeto 3: PLANEJAMENTO -->
+    <div class="card" style="opacity: 0.8; border-top: 5px solid #10b981;">
+      <span style="font-size: 0.8rem; color: #10b981; font-weight: bold; text-transform: uppercase;">Planejamento</span>
+      <h2>Projeto 3</h2>
+      <p>Monitoramento de Hidroponia: Nível de pH, nutrientes e oxigenação da água.</p>
     </div>
   </section>
 
 </main>
 
 <footer>
-  <p>Desenvolvido por Fernando</p>
+  <p>Desenvolvido por Fernando | 2026</p>
 </footer>
 
 </body>
