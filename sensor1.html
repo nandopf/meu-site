@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
-  <title>Monitoramento - Temperatura e Humidade</title>
+  <title>Monitoramento Ambiental e Sistema</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -56,32 +56,37 @@ function atualizarResumo(data) {
   
   const temps = data.map(i => i.temperatura).filter(v => v != null);
   const hums = data.map(i => i.humidade).filter(v => v != null);
+  const cpus = data.map(i => i.cpu_temp).filter(v => v != null);
 
   if (temps.length > 0) {
     document.getElementById('temp-avg').innerText = (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) + '°C';
-    document.getElementById('temp-max').innerText = Math.max(...temps).toFixed(1) + '°C';
   }
 
   if (hums.length > 0) {
-    const humAvg = hums.reduce((a, b) => a + b, 0) / hums.length;
-    document.getElementById('hum-avg').innerText = humAvg.toFixed(1) + '%';
     document.getElementById('hum-last').innerText = hums[0].toFixed(1) + '%';
+  }
+
+  if (cpus.length > 0) {
+    const cpuTemp = cpus[0];
+    const cpuElem = document.getElementById('cpu-temp');
+    cpuElem.innerText = cpuTemp.toFixed(1) + '°C';
+    // Alerta visual se o Raspberry estiver muito quente
+    cpuElem.style.color = cpuTemp > 60 ? '#ef4444' : '#10b981';
   }
 }
 
 function atualizarTabela(data) {
   const tabela = document.getElementById("tabela");
-  tabela.innerHTML = `<tr><th>Data/Hora</th><th>Temp (°C)</th><th>Hum (%)</th></tr>`;
+  tabela.innerHTML = `<tr><th>Data/Hora</th><th>Ambiente</th><th>Humidade</th><th>CPU RPi</th></tr>`;
   
   data.slice(0, 15).forEach(item => {
     const dataFormatada = new Date(item.created_at).toLocaleString("pt-BR");
-    const tempClass = item.temperatura > 25 ? 'temp-high' : (item.temperatura < 21 ? 'temp-low' : 'temp-normal');
-    
     tabela.innerHTML += `
       <tr>
         <td>${dataFormatada}</td>
-        <td class="${tempClass}">${item.temperatura ?? '--'}°C</td>
+        <td class="temp-normal">${item.temperatura ?? '--'}°C</td>
         <td class="hum-value">${item.humidade ?? '--'}%</td>
+        <td style="font-weight:bold">${item.cpu_temp ?? '--'}°C</td>
       </tr>`;
   });
 }
@@ -90,11 +95,12 @@ function atualizarGrafico(data) {
   const dadosInvertidos = [...data].slice(0, 40).reverse(); 
   const labels = dadosInvertidos.map(item => {
     const d = new Date(item.created_at);
-    return periodoAtual === 'dia' ? d.toLocaleTimeString("pt-BR", {hour:'2-digit', minute:'2-digit'}) : d.toLocaleDateString("pt-BR", {day:'2-digit', month:'2-digit'});
+    return d.toLocaleTimeString("pt-BR", {hour:'2-digit', minute:'2-digit'});
   });
   
   const temps = dadosInvertidos.map(item => item.temperatura);
   const hums = dadosInvertidos.map(item => item.humidade);
+  const cpus = dadosInvertidos.map(item => item.cpu_temp);
 
   const ctx = document.getElementById('graficoTemperatura').getContext('2d');
   if (meuGrafico) meuGrafico.destroy();
@@ -105,22 +111,26 @@ function atualizarGrafico(data) {
       labels: labels,
       datasets: [
         {
-          label: 'Temperatura (°C)',
+          label: 'Ambiente (°C)',
           data: temps,
           borderColor: '#2563eb',
-          backgroundColor: 'rgba(37, 99, 235, 0.1)',
           yAxisID: 'y',
-          tension: 0.3,
-          fill: true
+          tension: 0.3
         },
         {
           label: 'Humidade (%)',
           data: hums,
           borderColor: '#0891b2',
-          backgroundColor: 'rgba(8, 145, 178, 0.1)',
           yAxisID: 'y1',
-          tension: 0.3,
-          fill: true
+          tension: 0.3
+        },
+        {
+          label: 'CPU RPi (°C)',
+          data: cpus,
+          borderColor: '#ef4444',
+          borderDash: [5, 5], // Linha pontilhada para o sistema
+          yAxisID: 'y',
+          tension: 0.3
         }
       ]
     },
@@ -128,19 +138,8 @@ function atualizarGrafico(data) {
       responsive: true,
       maintainAspectRatio: false,
       scales: {
-        y: {
-          type: 'linear',
-          display: true,
-          position: 'left',
-          title: { display: true, text: 'Temp (°C)' }
-        },
-        y1: {
-          type: 'linear',
-          display: true,
-          position: 'right',
-          grid: { drawOnChartArea: false },
-          title: { display: true, text: 'Hum (%)' }
-        }
+        y: { type: 'linear', position: 'left', title: { display: true, text: 'Temp (°C)' } },
+        y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Hum (%)' } }
       }
     }
   });
@@ -153,8 +152,8 @@ setInterval(() => carregarDados(periodoAtual), 60000);
 <body>
 
 <header>
-  <h1>🌡️ Monitoramento Ambiental</h1>
-  <p>Temperatura e Humidade em tempo real</p>
+  <h1>🌡️ Monitoramento Completo</h1>
+  <p>Ambiente & Saúde do Raspberry Pi</p>
 </header>
 
 <nav>
@@ -172,32 +171,28 @@ setInterval(() => carregarDados(periodoAtual), 60000);
 
   <div class="summary-grid">
     <div class="summary-item">
-      <span class="summary-label">Temp. Média</span>
+      <span class="summary-label">Ambiente Médio</span>
       <span id="temp-avg" class="summary-value">--</span>
     </div>
     <div class="summary-item">
-      <span class="summary-label">Temp. Máxima</span>
-      <span id="temp-max" class="summary-value">--</span>
-    </div>
-    <div class="summary-item" style="border-top: 4px solid #0891b2;">
-      <span class="summary-label">Hum. Média</span>
-      <span id="hum-avg" class="summary-value">--</span>
-    </div>
-    <div class="summary-item">
-      <span class="summary-label">Hum. Atual</span>
+      <span class="summary-label">Humidade Atual</span>
       <span id="hum-last" class="summary-value">--</span>
+    </div>
+    <div class="summary-item" style="border-top: 4px solid #ef4444;">
+      <span class="summary-label">CPU Raspberry</span>
+      <span id="cpu-temp" class="summary-value">--</span>
     </div>
   </div>
 
   <div class="card" style="width: 100%; margin-bottom: 2rem; height: 400px; box-sizing: border-box;">
-    <h2>Tendências Ambientais</h2>
+    <h2>Gráfico de Monitoramento</h2>
     <div style="height: 300px;">
       <canvas id="graficoTemperatura"></canvas>
     </div>
   </div>
 
   <div class="card" style="width: 100%; box-sizing: border-box;">
-    <h2>Histórico Completo</h2>
+    <h2>Logs do Sistema</h2>
     <table id="tabela"></table>
   </div>
 </main>
