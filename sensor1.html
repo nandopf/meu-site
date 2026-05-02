@@ -42,62 +42,98 @@ async function carregarDados(periodo = 'dia') {
     const { data, error } = await query;
     if (error) throw error;
 
-    atualizarResumo(data);
+    const stats = calcularEstatisticas(data);
+    atualizarResumo(stats);
     atualizarTabela(data);
     atualizarGrafico(data);
+    gerarInsights(stats, periodo);
 
   } catch (err) {
     console.error("Erro ao carregar dados:", err);
   }
 }
 
-function atualizarResumo(data) {
-  if (data.length === 0) return;
-  
+function calcularEstatisticas(data) {
+  if (data.length === 0) return null;
   const temps = data.map(i => i.temperatura).filter(v => v != null);
   const hums = data.map(i => i.humidade).filter(v => v != null);
   const cpus = data.map(i => i.cpu_temp).filter(v => v != null);
 
-  if (temps.length > 0) {
-    document.getElementById('temp-avg').innerText = (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) + '°C';
+  return {
+    temp: {
+      avg: temps.reduce((a, b) => a + b, 0) / temps.length,
+      max: Math.max(...temps),
+      min: Math.min(...temps),
+      last: temps[0]
+    },
+    hum: {
+      avg: hums.reduce((a, b) => a + b, 0) / hums.length,
+      last: hums[0]
+    },
+    cpu: {
+      last: cpus[0],
+      avg: cpus.reduce((a, b) => a + b, 0) / cpus.length
+    },
+    count: data.length
+  };
+}
+
+function atualizarResumo(stats) {
+  if (!stats) return;
+  document.getElementById('temp-avg').innerText = stats.temp.avg.toFixed(1) + '°C';
+  document.getElementById('hum-last').innerText = stats.hum.last.toFixed(1) + '%';
+  const cpuElem = document.getElementById('cpu-temp');
+  cpuElem.innerText = stats.cpu.last.toFixed(1) + '°C';
+  cpuElem.style.color = stats.cpu.last > 60 ? '#ef4444' : '#10b981';
+}
+
+function gerarInsights(stats, periodo) {
+  const container = document.getElementById('insights-text');
+  if (!stats) {
+    container.innerHTML = "Aguardando dados para análise...";
+    return;
   }
 
-  if (hums.length > 0) {
-    document.getElementById('hum-last').innerText = hums[0].toFixed(1) + '%';
+  let analise = `Análise do período <strong>${periodo.toUpperCase()}</strong>:<br><br>`;
+  
+  // Lógica de análise de Temperatura
+  if (stats.temp.avg > 26) {
+    analise += `⚠️ O ambiente apresenta uma média térmica elevada (${stats.temp.avg.toFixed(1)}°C). `;
+  } else if (stats.temp.avg < 20) {
+    analise += `❄️ O período foi marcado por temperaturas baixas (${stats.temp.avg.toFixed(1)}°C). `;
+  } else {
+    analise += `✅ Clima estável: A temperatura média de ${stats.temp.avg.toFixed(1)}°C está dentro da zona de conforto. `;
   }
 
-  if (cpus.length > 0) {
-    const cpuTemp = cpus[0];
-    const cpuElem = document.getElementById('cpu-temp');
-    cpuElem.innerText = cpuTemp.toFixed(1) + '°C';
-    // Alerta visual se o Raspberry estiver muito quente
-    cpuElem.style.color = cpuTemp > 60 ? '#ef4444' : '#10b981';
+  // Lógica de Humidade
+  if (stats.hum.last > 75) {
+    analise += `A humidade atual está alta (${stats.hum.last.toFixed(1)}%), o que pode favorecer a condensação. `;
+  } else if (stats.hum.last < 30) {
+    analise += `Atenção: Ar seco detectado (${stats.hum.last.toFixed(1)}%). `;
   }
+
+  // Lógica da CPU
+  if (stats.cpu.last > 65) {
+    analise += `<br><br>🚀 <strong>Alerta de Sistema:</strong> O Raspberry Pi atingiu ${stats.cpu.last.toFixed(1)}°C. Verifique a ventilação do hardware.`;
+  } else {
+    analise += `<br><br>🖥️ <strong>Saúde do Hardware:</strong> O sistema operou com média de ${stats.cpu.avg.toFixed(1)}°C, indicando boa eficiência térmica.`;
+  }
+
+  container.innerHTML = analise;
 }
 
 function atualizarTabela(data) {
   const tabela = document.getElementById("tabela");
   tabela.innerHTML = `<tr><th>Data/Hora</th><th>Ambiente</th><th>Humidade</th><th>CPU RPi</th></tr>`;
-  
   data.slice(0, 15).forEach(item => {
     const dataFormatada = new Date(item.created_at).toLocaleString("pt-BR");
-    tabela.innerHTML += `
-      <tr>
-        <td>${dataFormatada}</td>
-        <td class="temp-normal">${item.temperatura ?? '--'}°C</td>
-        <td class="hum-value">${item.humidade ?? '--'}%</td>
-        <td style="font-weight:bold">${item.cpu_temp ?? '--'}°C</td>
-      </tr>`;
+    tabela.innerHTML += `<tr><td>${dataFormatada}</td><td class="temp-normal">${item.temperatura ?? '--'}°C</td><td class="hum-value">${item.humidade ?? '--'}%</td><td>${item.cpu_temp ?? '--'}°C</td></tr>`;
   });
 }
 
 function atualizarGrafico(data) {
   const dadosInvertidos = [...data].slice(0, 40).reverse(); 
-  const labels = dadosInvertidos.map(item => {
-    const d = new Date(item.created_at);
-    return d.toLocaleTimeString("pt-BR", {hour:'2-digit', minute:'2-digit'});
-  });
-  
+  const labels = dadosInvertidos.map(item => new Date(item.created_at).toLocaleTimeString("pt-BR", {hour:'2-digit', minute:'2-digit'}));
   const temps = dadosInvertidos.map(item => item.temperatura);
   const hums = dadosInvertidos.map(item => item.humidade);
   const cpus = dadosInvertidos.map(item => item.cpu_temp);
@@ -110,36 +146,17 @@ function atualizarGrafico(data) {
     data: {
       labels: labels,
       datasets: [
-        {
-          label: 'Ambiente (°C)',
-          data: temps,
-          borderColor: '#2563eb',
-          yAxisID: 'y',
-          tension: 0.3
-        },
-        {
-          label: 'Humidade (%)',
-          data: hums,
-          borderColor: '#0891b2',
-          yAxisID: 'y1',
-          tension: 0.3
-        },
-        {
-          label: 'CPU RPi (°C)',
-          data: cpus,
-          borderColor: '#ef4444',
-          borderDash: [5, 5], // Linha pontilhada para o sistema
-          yAxisID: 'y',
-          tension: 0.3
-        }
+        { label: 'Ambiente', data: temps, borderColor: '#2563eb', tension: 0.3, yAxisID: 'y' },
+        { label: 'Humidade', data: hums, borderColor: '#0891b2', tension: 0.3, yAxisID: 'y1' },
+        { label: 'CPU', data: cpus, borderColor: '#ef4444', borderDash: [5, 5], tension: 0.3, yAxisID: 'y' }
       ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       scales: {
-        y: { type: 'linear', position: 'left', title: { display: true, text: 'Temp (°C)' } },
-        y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Hum (%)' } }
+        y: { type: 'linear', position: 'left' },
+        y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } }
       }
     }
   });
@@ -150,7 +167,6 @@ setInterval(() => carregarDados(periodoAtual), 60000);
 </script>
 
 <body>
-
 <header>
   <h1>🌡️ Monitoramento Completo</h1>
   <p>Ambiente & Saúde do Raspberry Pi</p>
@@ -184,6 +200,14 @@ setInterval(() => carregarDados(periodoAtual), 60000);
     </div>
   </div>
 
+  <!-- SEÇÃO DE INSIGHTS (IA LOCAL) -->
+  <div class="card" style="width: 100%; margin-bottom: 2rem; border-left: 5px solid var(--primary); text-align: left;">
+    <h2 style="color: var(--primary); font-size: 1.2rem;">💡 Insights Inteligentes</h2>
+    <p id="insights-text" style="color: var(--secondary); font-size: 0.95rem; line-height: 1.5;">
+      Analisando dados do período...
+    </p>
+  </div>
+
   <div class="card" style="width: 100%; margin-bottom: 2rem; height: 400px; box-sizing: border-box;">
     <h2>Gráfico de Monitoramento</h2>
     <div style="height: 300px;">
@@ -200,6 +224,5 @@ setInterval(() => carregarDados(periodoAtual), 60000);
 <footer>
   <p>Desenvolvido por Fernando</p>
 </footer>
-
 </body>
 </html>
