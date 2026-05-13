@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Fermentador - Monitoramento</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<script>
+// Configurações do Supabase
+const url = "https://ptunjhmkickwuiyxufhv.supabase.co";
+const key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0dW5qaG1raWNrd3VpeXh1Zmh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1OTg1OTUsImV4cCI6MjA5MzE3NDU5NX0.ASh37T-ZHHnFTk_yWLQnWNv91l0AOeUW_1Tj9F-8KD0"; 
+
+const supabaseClient = supabase.createClient(url, key);
+let meuGrafico;
+let periodoAtual = 'dia';
+
+async function carregarDados(periodo = 'dia') {
+  periodoAtual = periodo;
+  
+  // Atualizar botões de filtro
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.periodo === periodo);
+  });
+
+  let dataInicio = new Date();
+  if (periodo === 'dia') dataInicio.setDate(dataInicio.getDate() - 1);
+  else if (periodo === 'semana') dataInicio.setDate(dataInicio.getDate() - 7);
+  else if (periodo === 'mes') dataInicio.setMonth(dataInicio.getMonth() - 1);
+  else dataInicio = new Date(0);
+
+  try {
+    // BUSCANDO DA NOVA TABELA: temperatura_fermentador
+    let query = supabaseClient
+      .from('temperatura_fermentador')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (periodo !== 'total') {
+      query = query.gte('created_at', dataInicio.toISOString());
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const stats = calcularEstatisticas(data);
+    atualizarResumo(stats);
+    atualizarTabela(data);
+    atualizarGrafico(data);
+    gerarInsights(stats, periodo);
+
+  } catch (err) {
+    console.error("Erro ao carregar dados:", err);
+  }
+}
+
+function calcularEstatisticas(data) {
+  if (data.length === 0) return null;
+  const s1 = data.map(i => i.sensor_1_temp).filter(v => v != null);
+  const s2 = data.map(i => i.sensor_2_temp).filter(v => v != null);
+  const cpus = data.map(i => i.cpu_temp).filter(v => v != null);
+
+  return {
+    s1: {
+      avg: s1.reduce((a, b) => a + b, 0) / s1.length,
+      last: s1[0]
+    },
+    s2: {
+      avg: s2.reduce((a, b) => a + b, 0) / s2.length,
+      last: s2[0]
+    },
+    cpu: {
+      last: cpus[0],
+      avg: cpus.reduce((a, b) => a + b, 0) / cpus.length
+    }
+  };
+}
+
+function atualizarResumo(stats) {
+  if (!stats) return;
+  document.getElementById('s1-last').innerText = stats.s1.last.toFixed(1) + '°C';
+  document.getElementById('s2-last').innerText = stats.s2.last.toFixed(1) + '°C';
+  const cpuElem = document.getElementById('cpu-temp');
+  cpuElem.innerText = stats.cpu.last.toFixed(1) + '°C';
+  cpuElem.style.color = stats.cpu.last > 60 ? '#ef4444' : '#10b981';
+}
+
+function gerarInsights(stats, periodo) {
+  const container = document.getElementById('insights-text');
+  if (!stats) {
+    container.innerHTML = "Aguardando dados para análise...";
+    return;
+  }
+
+  let analise = `Análise do Fermentador (Período: <strong>${periodo.toUpperCase()}</strong>):<br><br>`;
+  
+  // Diferença entre sensores
+  const dif = Math.abs(stats.s1.last - stats.s2.last);
+  
+  analise += `🍺 <strong>Mosto (S1):</strong> ${stats.s1.last.toFixed(1)}°C. `;
+  analise += `<br>❄️ <strong>Geladeira (S2):</strong> ${stats.s2.last.toFixed(1)}°C. `;
+  
+  if (dif > 3) {
+    analise += `<br><br>⚠️ <strong>Atenção:</strong> Diferença de ${dif.toFixed(1)}°C entre o mosto e a geladeira. Verifique a inércia térmica.`;
+  }
+
+  if (stats.cpu.last > 65) {
+    analise += `<br><br>🚀 <strong>Alerta de Sistema:</strong> CPU aquecida (${stats.cpu.last.toFixed(1)}°C).`;
+  }
+
+  container.innerHTML = analise;
+}
+
+function atualizarTabela(data) {
+  const tabela = document.getElementById("tabela");
+  tabela.innerHTML = `<tr><th>Data/Hora</th><th>Mosto (S1)</th><th>Ambiente (S2)</th><th>CPU</th></tr>`;
+  data.slice(0, 15).forEach(item => {
+    const dataFormatada = new Date(item.created_at).toLocaleString("pt-BR");
+    tabela.innerHTML += `<tr><td>${dataFormatada}</td><td class="temp-normal">${item.sensor_1_temp ?? '--'}°C</td><td class="hum-value">${item.sensor_2_temp ?? '--'}°C</td><td>${item.cpu_temp ?? '--'}°C</td></tr>`;
+  });
+}
+
+function atualizarGrafico(data) {
+  const dadosInvertidos = [...data].slice(0, 40).reverse(); 
+  const labels = dadosInvertidos.map(item => new Date(item.created_at).toLocaleTimeString("pt-BR", {hour:'2-digit', minute:'2-digit'}));
+  const s1 = dadosInvertidos.map(item => item.sensor_1_temp);
+  const s2 = dadosInvertidos.map(item => item.sensor_2_temp);
+  const cpus = dadosInvertidos.map(item => item.cpu_temp);
+
+  const ctx = document.getElementById('graficoFermentador').getContext('2d');
+  if (meuGrafico) meuGrafico.destroy();
+
+  meuGrafico = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'Mosto (S1)', data: s1, borderColor: '#f59e0b', tension: 0.3, fill: false },
+        { label: 'Geladeira (S2)', data: s2, borderColor: '#3b82f6', tension: 0.3, fill: false },
+        { label: 'CPU', data: cpus, borderColor: '#ef4444', borderDash: [5, 5], tension: 0.3, fill: false }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { type: 'linear', position: 'left', title: { display: true, text: 'Temperatura °C' } }
+      }
+    }
+  });
+}
+
+window.onload = () => carregarDados('dia');
+setInterval(() => carregarDados(periodoAtual), 60000);
+</script>
+
+<body>
+<header>
+  <h1>🍺 Fermentador - Controle</h1>
+  <p>Monitoramento de Inércia Térmica</p>
+</header>
+
+<nav>
+  <a href="index.html">Home</a>
+  <a href="sensor1.html">Quarto</a>
+  <a href="sensor2.html" class="active">Fermentador</a>
+</nav>
+
+<main>
+  <div class="tabs">
+    <button class="tab-btn active" data-periodo="dia" onclick="carregarDados('dia')">Diário</button>
+    <button class="tab-btn" data-periodo="semana" onclick="carregarDados('semana')">Semanal</button>
+    <button class="tab-btn" data-periodo="mes" onclick="carregarDados('mes')">Mensal</button>
+    <button class="tab-btn" data-periodo="total" onclick="carregarDados('total')">Total</button>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-item" style="border-top: 4px solid #f59e0b;">
+      <span class="summary-label">Mosto (S1)</span>
+      <span id="s1-last" class="summary-value">--</span>
+    </div>
+    <div class="summary-item" style="border-top: 4px solid #3b82f6;">
+      <span class="summary-label">Geladeira (S2)</span>
+      <span id="s2-last" class="summary-value">--</span>
+    </div>
+    <div class="summary-item" style="border-top: 4px solid #ef4444;">
+      <span class="summary-label">CPU Sistema</span>
+      <span id="cpu-temp" class="summary-value">--</span>
+    </div>
+  </div>
+
+  <div class="card" style="width: 100%; margin-bottom: 2rem; border-left: 5px solid #f59e0b; text-align: left;">
+    <h2 style="color: #f59e0b; font-size: 1.2rem;">💡 Insights do Fermentador</h2>
+    <p id="insights-text" style="color: var(--secondary); font-size: 0.95rem; line-height: 1.5;">
+      Analisando dados da fermentação...
+    </p>
+  </div>
+
+  <div class="card" style="width: 100%; margin-bottom: 2rem; height: 400px; box-sizing: border-box;">
+    <h2>Histórico Térmico</h2>
+    <div style="height: 300px;">
+      <canvas id="graficoFermentador"></canvas>
+    </div>
+  </div>
+
+  <div class="card" style="width: 100%; box-sizing: border-box;">
+    <h2>Logs de Temperatura</h2>
+    <table id="tabela"></table>
+  </div>
+</main>
+
+<footer>
+  <p>Desenvolvido por Fernando | Lab IoT</p>
+</footer>
+</body>
+</html>
