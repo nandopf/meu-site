@@ -107,7 +107,9 @@ function gerarInsights(stats, periodo) {
   }
 
   if (stats.cpu.last > 65) {
-    analise += `<br><br>🚀 <strong>Alerta de Sistema:</strong> CPU aquecida (${stats.cpu.last.toFixed(1)}°C).`;
+    analise += `<br><br>🚀 <strong>Alerta de Sistema:</strong> O Raspberry Pi atingiu ${stats.cpu.last.toFixed(1)}°C. Verifique a ventilação do hardware.`;
+  } else {
+    analise += `<br><br>🖥️ <strong>Saúde do Hardware:</strong> O sistema operou com média de ${stats.cpu.avg.toFixed(1)}°C, indicando boa eficiência térmica.`;
   }
 
   container.innerHTML = analise;
