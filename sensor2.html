@@ -17,19 +17,47 @@ const supabaseClient = supabase.createClient(url, key);
 let meuGrafico;
 let periodoAtual = 'dia';
 
+function ativarFiltroCustom() {
+  periodoAtual = 'custom';
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.periodo === 'custom');
+  });
+  document.getElementById('custom-date-container').style.display = 'flex';
+}
+
 async function carregarDados(periodo = 'dia') {
   periodoAtual = periodo;
   
+  const customContainer = document.getElementById('custom-date-container');
+  if (periodo !== 'custom') {
+    customContainer.style.display = 'none';
+  }
+
   // Atualizar botões de filtro
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.periodo === periodo);
   });
 
   let dataInicio = new Date();
+  let dataFim = new Date();
+
   if (periodo === 'dia') dataInicio.setDate(dataInicio.getDate() - 1);
   else if (periodo === 'semana') dataInicio.setDate(dataInicio.getDate() - 7);
   else if (periodo === 'mes') dataInicio.setMonth(dataInicio.getMonth() - 1);
-  else dataInicio = new Date(0);
+  else if (periodo === 'custom') {
+    const startVal = document.getElementById('start-date').value;
+    const endVal = document.getElementById('end-date').value;
+    if (!startVal) {
+      console.log("Aguardando seleção de data");
+      return; 
+    }
+    dataInicio = new Date(startVal + 'T00:00:00');
+    if (endVal) {
+      dataFim = new Date(endVal + 'T23:59:59');
+    } else {
+      dataFim = new Date();
+    }
+  } else dataInicio = new Date(0);
 
   try {
     // BUSCANDO DA NOVA TABELA: temperatura_fermentador
@@ -40,9 +68,13 @@ async function carregarDados(periodo = 'dia') {
 
     if (periodo !== 'total') {
       query = query.gte('created_at', dataInicio.toISOString());
+      if (periodo === 'custom') {
+        query = query.lte('created_at', dataFim.toISOString());
+      }
     }
 
-    const { data, error } = await query;
+    // Aumentar o limite da consulta para não truncar dados históricos
+    const { data, error } = await query.limit(2000);
     if (error) throw error;
 
     const stats = calcularEstatisticas(data);
@@ -57,7 +89,7 @@ async function carregarDados(periodo = 'dia') {
 }
 
 function calcularEstatisticas(data) {
-  if (data.length === 0) return null;
+  if (!data || data.length === 0) return null;
   const s1 = data.map(i => i.sensor_1_temp).filter(v => v != null);
   const s2 = data.map(i => i.sensor_2_temp).filter(v => v != null);
   const cpus = data.map(i => i.cpu_temp).filter(v => v != null);
@@ -118,15 +150,25 @@ function gerarInsights(stats, periodo) {
 function atualizarTabela(data) {
   const tabela = document.getElementById("tabela");
   tabela.innerHTML = `<tr><th>Data/Hora</th><th>Mosto (S1)</th><th>Ambiente (S2)</th><th>CPU</th></tr>`;
-  data.slice(0, 15).forEach(item => {
+  
+  // Se for personalizado ou total, mostra mais linhas, senão mantém 15
+  const limite = (periodoAtual === 'custom' || periodoAtual === 'total') ? 1000 : 15;
+  
+  data.slice(0, limite).forEach(item => {
     const dataFormatada = new Date(item.created_at).toLocaleString("pt-BR");
     tabela.innerHTML += `<tr><td>${dataFormatada}</td><td class="temp-normal">${item.sensor_1_temp ?? '--'}°C</td><td class="hum-value">${item.sensor_2_temp ?? '--'}°C</td><td>${item.cpu_temp ?? '--'}°C</td></tr>`;
   });
 }
 
 function atualizarGrafico(data) {
-  const dadosInvertidos = [...data].slice(0, 40).reverse(); 
-  const labels = dadosInvertidos.map(item => new Date(item.created_at).toLocaleTimeString("pt-BR", {hour:'2-digit', minute:'2-digit'}));
+  const limitePontos = (periodoAtual === 'custom' || periodoAtual === 'total') ? 1000 : 40;
+  const dadosInvertidos = [...data].slice(0, limitePontos).reverse(); 
+  
+  const labels = dadosInvertidos.map(item => {
+    const dt = new Date(item.created_at);
+    if (periodoAtual === 'dia') return dt.toLocaleTimeString("pt-BR", {hour:'2-digit', minute:'2-digit'});
+    return dt.toLocaleString("pt-BR", {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+  });
   const s1 = dadosInvertidos.map(item => item.sensor_1_temp);
   const s2 = dadosInvertidos.map(item => item.sensor_2_temp);
   const cpus = dadosInvertidos.map(item => item.cpu_temp);
@@ -176,6 +218,19 @@ setInterval(() => carregarDados(periodoAtual), 60000);
     <button class="tab-btn" data-periodo="semana" onclick="carregarDados('semana')">Semanal</button>
     <button class="tab-btn" data-periodo="mes" onclick="carregarDados('mes')">Mensal</button>
     <button class="tab-btn" data-periodo="total" onclick="carregarDados('total')">Total</button>
+    <button class="tab-btn" data-periodo="custom" onclick="ativarFiltroCustom()">Personalizado</button>
+  </div>
+
+  <div id="custom-date-container" class="card" style="display: none; width: 100%; margin-bottom: 2rem; padding: 1rem; flex-direction: row; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+    <div style="display: flex; flex-direction: column; align-items: flex-start;">
+      <label for="start-date" style="font-size: 0.8rem; color: var(--secondary); margin-bottom: 0.2rem;">Data Início:</label>
+      <input type="date" id="start-date" style="padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 6px;">
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: flex-start;">
+      <label for="end-date" style="font-size: 0.8rem; color: var(--secondary); margin-bottom: 0.2rem;">Data Fim:</label>
+      <input type="date" id="end-date" style="padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 6px;">
+    </div>
+    <button onclick="carregarDados('custom')" style="padding: 0.6rem 1.5rem; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; margin-top: 1.2rem;">Filtrar</button>
   </div>
 
   <div class="summary-grid">

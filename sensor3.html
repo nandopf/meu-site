@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
-  <title>Monitoramento Ambiental e Sistema</title>
+  <title>Hidroponia - Monitoramento</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -45,33 +45,23 @@ async function carregarDados(periodo = 'dia') {
   else if (periodo === 'custom') {
     const startVal = document.getElementById('start-date').value;
     const endVal = document.getElementById('end-date').value;
-    if (!startVal) {
-      // Se não escolheu data, não faz nada ou avisa
-      console.log("Aguardando seleção de data");
-      return; 
-    }
+    if (!startVal) return; 
     dataInicio = new Date(startVal + 'T00:00:00');
-    if (endVal) {
-      dataFim = new Date(endVal + 'T23:59:59');
-    } else {
-      dataFim = new Date();
-    }
+    if (endVal) dataFim = new Date(endVal + 'T23:59:59');
+    else dataFim = new Date();
   } else dataInicio = new Date(0);
 
   try {
     let query = supabaseClient
-      .from('temperatura_quarto')
+      .from('hidroponia')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (periodo !== 'total') {
       query = query.gte('created_at', dataInicio.toISOString());
-      if (periodo === 'custom') {
-        query = query.lte('created_at', dataFim.toISOString());
-      }
+      if (periodo === 'custom') query = query.lte('created_at', dataFim.toISOString());
     }
 
-    // Aumentar o limite da consulta para não truncar dados históricos
     const { data, error } = await query.limit(2000);
     if (error) throw error;
 
@@ -88,68 +78,41 @@ async function carregarDados(periodo = 'dia') {
 
 function calcularEstatisticas(data) {
   if (!data || data.length === 0) return null;
-  const temps = data.map(i => i.temperatura).filter(v => v != null);
-  const hums = data.map(i => i.humidade).filter(v => v != null);
-  const cpus = data.map(i => i.cpu_temp).filter(v => v != null);
+  const phs = data.map(i => i.ph).filter(v => v != null);
+  const temps = data.map(i => i.temp_agua).filter(v => v != null);
+  const nutrients = data.map(i => i.nutrientes_ppm).filter(v => v != null);
 
   return {
-    temp: {
-      avg: temps.reduce((a, b) => a + b, 0) / temps.length,
-      max: Math.max(...temps),
-      min: Math.min(...temps),
-      last: temps[0]
-    },
-    hum: {
-      avg: hums.reduce((a, b) => a + b, 0) / hums.length,
-      last: hums[0]
-    },
-    cpu: {
-      last: cpus[0],
-      avg: cpus.reduce((a, b) => a + b, 0) / cpus.length
-    },
-    count: data.length
+    ph: { last: phs[0], avg: phs.reduce((a, b) => a + b, 0) / phs.length },
+    temp: { last: temps[0], avg: temps.reduce((a, b) => a + b, 0) / temps.length },
+    nutrientes: { last: nutrients[0] }
   };
 }
 
 function atualizarResumo(stats) {
   if (!stats) return;
-  document.getElementById('temp-avg').innerText = stats.temp.avg.toFixed(1) + '°C';
-  document.getElementById('hum-last').innerText = stats.hum.last.toFixed(1) + '%';
-  const cpuElem = document.getElementById('cpu-temp');
-  cpuElem.innerText = stats.cpu.last.toFixed(1) + '°C';
-  cpuElem.style.color = stats.cpu.last > 60 ? '#ef4444' : '#10b981';
+  document.getElementById('ph-last').innerText = stats.ph.last.toFixed(2);
+  document.getElementById('temp-last').innerText = stats.temp.last.toFixed(1) + '°C';
+  document.getElementById('nutri-last').innerText = stats.nutrientes.last.toFixed(0) + ' PPM';
 }
 
 function gerarInsights(stats, periodo) {
   const container = document.getElementById('insights-text');
   if (!stats) {
-    container.innerHTML = "Aguardando dados para análise...";
+    container.innerHTML = "Aguardando dados da hidroponia...";
     return;
   }
 
-  let analise = `Análise do período <strong>${periodo.toUpperCase()}</strong>:<br><br>`;
+  let analise = `Análise de Hidroponia (Período: <strong>${periodo.toUpperCase()}</strong>):<br><br>`;
   
-  // Lógica de análise de Temperatura
-  if (stats.temp.avg > 26) {
-    analise += `⚠️ O ambiente apresenta uma média térmica elevada (${stats.temp.avg.toFixed(1)}°C). `;
-  } else if (stats.temp.avg < 20) {
-    analise += `❄️ O período foi marcado por temperaturas baixas (${stats.temp.avg.toFixed(1)}°C). `;
+  if (stats.ph.last < 5.5 || stats.ph.last > 6.5) {
+    analise += `⚠️ <strong>Alerta de pH:</strong> O valor atual (${stats.ph.last.toFixed(2)}) está fora da faixa ideal (5.5 - 6.5). `;
   } else {
-    analise += `✅ Clima estável: A temperatura média de ${stats.temp.avg.toFixed(1)}°C está dentro da zona de conforto. `;
+    analise += `✅ <strong>pH Estável:</strong> A acidez da água está ideal para absorção de nutrientes. `;
   }
 
-  // Lógica de Humidade
-  if (stats.hum.last > 75) {
-    analise += `A humidade atual está alta (${stats.hum.last.toFixed(1)}%), o que pode favorecer a condensação. `;
-  } else if (stats.hum.last < 30) {
-    analise += `Atenção: Ar seco detectado (${stats.hum.last.toFixed(1)}%). `;
-  }
-
-  // Lógica da CPU
-  if (stats.cpu.last > 65) {
-    analise += `<br><br>🚀 <strong>Alerta de Sistema:</strong> O Raspberry Pi atingiu ${stats.cpu.last.toFixed(1)}°C. Verifique a ventilação do hardware.`;
-  } else {
-    analise += `<br><br>🖥️ <strong>Saúde do Hardware:</strong> O sistema operou com média de ${stats.cpu.avg.toFixed(1)}°C, indicando boa eficiência térmica.`;
+  if (stats.temp.last > 24) {
+    analise += `<br>💧 <strong>Temperatura da Água:</strong> Elevada (${stats.temp.last.toFixed(1)}°C). Isso pode reduzir a oxigenação.`;
   }
 
   container.innerHTML = analise;
@@ -157,19 +120,16 @@ function gerarInsights(stats, periodo) {
 
 function atualizarTabela(data) {
   const tabela = document.getElementById("tabela");
-  tabela.innerHTML = `<tr><th>Data/Hora</th><th>Ambiente</th><th>Humidade</th><th>CPU RPi</th></tr>`;
-  
-  // Se for personalizado ou total, mostra mais linhas, senão mantém 15
+  tabela.innerHTML = `<tr><th>Data/Hora</th><th>pH</th><th>Temp Água</th><th>Nutrientes (PPM)</th></tr>`;
   const limite = (periodoAtual === 'custom' || periodoAtual === 'total') ? 1000 : 15;
   
   data.slice(0, limite).forEach(item => {
     const dataFormatada = new Date(item.created_at).toLocaleString("pt-BR");
-    tabela.innerHTML += `<tr><td>${dataFormatada}</td><td class="temp-normal">${item.temperatura ?? '--'}°C</td><td class="hum-value">${item.humidade ?? '--'}%</td><td>${item.cpu_temp ?? '--'}°C</td></tr>`;
+    tabela.innerHTML += `<tr><td>${dataFormatada}</td><td>${item.ph ?? '--'}</td><td class="temp-normal">${item.temp_agua ?? '--'}°C</td><td class="hum-value">${item.nutrientes_ppm ?? '--'}</td></tr>`;
   });
 }
 
 function atualizarGrafico(data) {
-  // Aumenta o limite de pontos no gráfico para períodos longos
   const limitePontos = (periodoAtual === 'custom' || periodoAtual === 'total') ? 1000 : 40;
   const dadosInvertidos = [...data].slice(0, limitePontos).reverse(); 
   
@@ -178,11 +138,10 @@ function atualizarGrafico(data) {
     if (periodoAtual === 'dia') return dt.toLocaleTimeString("pt-BR", {hour:'2-digit', minute:'2-digit'});
     return dt.toLocaleString("pt-BR", {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
   });
-  const temps = dadosInvertidos.map(item => item.temperatura);
-  const hums = dadosInvertidos.map(item => item.humidade);
-  const cpus = dadosInvertidos.map(item => item.cpu_temp);
+  const phs = dadosInvertidos.map(item => item.ph);
+  const temps = dadosInvertidos.map(item => item.temp_agua);
 
-  const ctx = document.getElementById('graficoTemperatura').getContext('2d');
+  const ctx = document.getElementById('graficoHidroponia').getContext('2d');
   if (meuGrafico) meuGrafico.destroy();
 
   meuGrafico = new Chart(ctx, {
@@ -190,17 +149,16 @@ function atualizarGrafico(data) {
     data: {
       labels: labels,
       datasets: [
-        { label: 'Ambiente', data: temps, borderColor: '#2563eb', tension: 0.3, yAxisID: 'y' },
-        { label: 'Humidade', data: hums, borderColor: '#0891b2', tension: 0.3, yAxisID: 'y1' },
-        { label: 'CPU', data: cpus, borderColor: '#ef4444', borderDash: [5, 5], tension: 0.3, yAxisID: 'y' }
+        { label: 'pH', data: phs, borderColor: '#10b981', tension: 0.3, yAxisID: 'y' },
+        { label: 'Temp Água', data: temps, borderColor: '#3b82f6', tension: 0.3, yAxisID: 'y1' }
       ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       scales: {
-        y: { type: 'linear', position: 'left' },
-        y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } }
+        y: { type: 'linear', position: 'left', title: { display: true, text: 'pH' } },
+        y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Temp °C' } }
       }
     }
   });
@@ -212,13 +170,15 @@ setInterval(() => carregarDados(periodoAtual), 60000);
 
 <body>
 <header>
-  <h1>🌡️ Monitoramento Completo</h1>
-  <p>Ambiente & Saúde do Raspberry Pi</p>
+  <h1>💧 Hidroponia - Controle</h1>
+  <p>Monitoramento de pH e Nutrientes</p>
 </header>
 
 <nav>
   <a href="index.html">Home</a>
-  <a href="sensor1.html">1 Sensor</a>
+  <a href="sensor1.html">Quarto</a>
+  <a href="sensor2.html">Fermentador</a>
+  <a href="sensor3.html" class="active">Hidroponia</a>
 </nav>
 
 <main>
@@ -239,47 +199,46 @@ setInterval(() => carregarDados(periodoAtual), 60000);
       <label for="end-date" style="font-size: 0.8rem; color: var(--secondary); margin-bottom: 0.2rem;">Data Fim:</label>
       <input type="date" id="end-date" style="padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 6px;">
     </div>
-    <button onclick="carregarDados('custom')" style="padding: 0.6rem 1.5rem; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; margin-top: 1.2rem;">Filtrar</button>
+    <button onclick="carregarDados('custom')" style="padding: 0.6rem 1.5rem; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; margin-top: 1.2rem;">Filtrar</button>
   </div>
 
   <div class="summary-grid">
-    <div class="summary-item">
-      <span class="summary-label">Ambiente Médio</span>
-      <span id="temp-avg" class="summary-value">--</span>
+    <div class="summary-item" style="border-top: 4px solid #10b981;">
+      <span class="summary-label">pH Atual</span>
+      <span id="ph-last" class="summary-value">--</span>
     </div>
-    <div class="summary-item">
-      <span class="summary-label">Humidade Atual</span>
-      <span id="hum-last" class="summary-value">--</span>
+    <div class="summary-item" style="border-top: 4px solid #3b82f6;">
+      <span class="summary-label">Temperatura Água</span>
+      <span id="temp-last" class="summary-value">--</span>
     </div>
-    <div class="summary-item" style="border-top: 4px solid #ef4444;">
-      <span class="summary-label">CPU Raspberry</span>
-      <span id="cpu-temp" class="summary-value">--</span>
+    <div class="summary-item" style="border-top: 4px solid #0891b2;">
+      <span class="summary-label">Nutrientes</span>
+      <span id="nutri-last" class="summary-value">--</span>
     </div>
   </div>
 
-  <!-- SEÇÃO DE INSIGHTS (IA LOCAL) -->
-  <div class="card" style="width: 100%; margin-bottom: 2rem; border-left: 5px solid var(--primary); text-align: left;">
-    <h2 style="color: var(--primary); font-size: 1.2rem;">💡 Insights Inteligentes</h2>
+  <div class="card" style="width: 100%; margin-bottom: 2rem; border-left: 5px solid #10b981; text-align: left;">
+    <h2 style="color: #10b981; font-size: 1.2rem;">💡 Insights da Hidroponia</h2>
     <p id="insights-text" style="color: var(--secondary); font-size: 0.95rem; line-height: 1.5;">
-      Analisando dados do período...
+      Analisando parâmetros da água...
     </p>
   </div>
 
   <div class="card" style="width: 100%; margin-bottom: 2rem; height: 400px; box-sizing: border-box;">
-    <h2>Gráfico de Monitoramento</h2>
+    <h2>Equilíbrio Químico e Térmico</h2>
     <div style="height: 300px;">
-      <canvas id="graficoTemperatura"></canvas>
+      <canvas id="graficoHidroponia"></canvas>
     </div>
   </div>
 
   <div class="card" style="width: 100%; box-sizing: border-box;">
-    <h2>Logs do Sistema</h2>
+    <h2>Histórico de Parâmetros</h2>
     <table id="tabela"></table>
   </div>
 </main>
 
 <footer>
-  <p>Desenvolvido por Fernando</p>
+  <p>Desenvolvido por Fernando | Lab IoT</p>
 </footer>
 </body>
 </html>
